@@ -4,6 +4,7 @@ export type CursorRepulsionUniforms = {
   uPointer: { value: THREE.Vector2 };
   uPointerAspect: { value: number };
   uPointerRadius: { value: number };
+  uPointerClearRadius: { value: number };
   uPointerStrength: { value: number };
   uPointerActive: { value: number };
 };
@@ -11,7 +12,8 @@ export type CursorRepulsionUniforms = {
 export const createCursorRepulsionUniforms = (): CursorRepulsionUniforms => ({
   uPointer: { value: new THREE.Vector2(2, 2) },
   uPointerAspect: { value: window.innerWidth / Math.max(1, window.innerHeight) },
-  uPointerRadius: { value: 0.17 },
+  uPointerRadius: { value: 0.34 },
+  uPointerClearRadius: { value: 0.08 },
   uPointerStrength: { value: 1 },
   uPointerActive: { value: 0 },
 });
@@ -20,6 +22,7 @@ const cursorRepulsionVertex = `
 uniform vec2 uPointer;
 uniform float uPointerAspect;
 uniform float uPointerRadius;
+uniform float uPointerClearRadius;
 uniform float uPointerStrength;
 uniform float uPointerActive;
 
@@ -34,9 +37,10 @@ vec4 repelFromPointer(vec4 clipPosition, float seed) {
 
   vec2 fallback = vec2(cos(seed * 6.2831853), sin(seed * 6.2831853));
   vec2 direction = distanceToPointer > 0.0001 ? metric / distanceToPointer : fallback;
-  float t = smoothstep(0.0, 1.0, distanceToPointer / uPointerRadius);
-  float clearRadius = uPointerRadius * 0.42;
-  float displacedDistance = mix(clearRadius, uPointerRadius, t);
+  float normalizedDistance = clamp(distanceToPointer / uPointerRadius, 0.0, 1.0);
+  float influence = 1.0 - smoothstep(0.0, 1.0, normalizedDistance);
+  float warpPush = influence * uPointerRadius * 0.34;
+  float displacedDistance = max(distanceToPointer + warpPush, uPointerClearRadius);
   float finalDistance = mix(distanceToPointer, displacedDistance, uPointerStrength * uPointerActive);
   vec2 displacedMetric = direction * finalDistance;
   vec2 displacedNdc = uPointer + vec2(displacedMetric.x / uPointerAspect, displacedMetric.y);

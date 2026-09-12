@@ -97,7 +97,7 @@ const morphGeometry = referenceMorph
   : createMorphGeometry(quality.morphCount);
 
 const cursorRepulsion = createCursorRepulsionUniforms();
-const supportsPointerRepulsion = !reduceMotion && window.matchMedia('(pointer: fine)').matches;
+const supportsPointerRepulsion = !reduceMotion;
 
 const flowerMaterial = createMorphMaterial(pixelRatio, cursorRepulsion);
 flowerMaterial.uniforms.uMorph.value = 0;
@@ -480,7 +480,8 @@ const resize = () => {
   camera.aspect = width / Math.max(1, height);
   camera.updateProjectionMatrix();
   cursorRepulsion.uPointerAspect.value = width / Math.max(1, height);
-  cursorRepulsion.uPointerRadius.value = THREE.MathUtils.clamp(220 / Math.max(1, height), 0.1, 0.36);
+  cursorRepulsion.uPointerRadius.value = THREE.MathUtils.clamp(300 / Math.max(1, height), 0.14, 0.46);
+  cursorRepulsion.uPointerClearRadius.value = THREE.MathUtils.clamp(72 / Math.max(1, height), 0.045, 0.14);
   flowerMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   galaxyMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   terrainMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
