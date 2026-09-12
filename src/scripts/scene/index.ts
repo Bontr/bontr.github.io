@@ -97,7 +97,9 @@ const morphGeometry = referenceMorph
   : createMorphGeometry(quality.morphCount);
 
 const cursorRepulsion = createCursorRepulsionUniforms();
-const supportsPointerRepulsion = !reduceMotion;
+// Direct pointer response remains available even when reduced motion is enabled.
+// Reduced motion applies to ambient/cinematic movement, not user-driven feedback.
+const supportsPointerRepulsion = true;
 
 const flowerMaterial = createMorphMaterial(pixelRatio, cursorRepulsion);
 flowerMaterial.uniforms.uMorph.value = 0;
