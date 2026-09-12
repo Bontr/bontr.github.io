@@ -12,6 +12,25 @@ export const createPersonSystem = (): SceneSystem => {
   const ground = terrainHeight(x, z);
   person.position.set(x, ground + 0.14, z);
   person.scale.setScalar(0.58);
+  person.renderOrder = 8;
+
+  const haloMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uOpacity: { value: 0.22 },
+      uColor: { value: new THREE.Color(0xffb878) },
+    },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform float uOpacity; uniform vec3 uColor; varying vec2 vUv; void main(){ vec2 p=(vUv-0.5)*2.0; float r=dot(p,p); float a=(exp(-r*5.2)+exp(-r*1.45)*0.23)*uOpacity; if(a<0.004) discard; gl_FragColor=vec4(uColor,a); }`,
+  });
+  const haloGeometry = new THREE.PlaneGeometry(1.72, 0.9);
+  const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+  halo.position.set(x, ground + 0.32, z - 0.08);
+  halo.renderOrder = 2;
+  root.add(halo);
 
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 18, 12), material);
   head.position.y = 0.73;
@@ -32,17 +51,21 @@ export const createPersonSystem = (): SceneSystem => {
   addLimb(0.1, 0.49, 0.18, 0.34, 0.022);
   root.add(person);
 
-  const shadowMaterial = new THREE.MeshBasicMaterial({
-    color: 0x000000,
+  const shadowMaterial = new THREE.ShaderMaterial({
     transparent: true,
-    opacity: 0.42,
     depthWrite: false,
+    depthTest: false,
+    uniforms: { uOpacity: { value: 0.58 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform float uOpacity; varying vec2 vUv; void main(){ vec2 p=(vUv-0.5)*2.0; p.x*=0.72; float d=dot(p,p); float a=(1.0-smoothstep(0.08,1.0,d))*uOpacity; if(a<0.004) discard; gl_FragColor=vec4(0.0,0.0,0.0,a); }`,
   });
-  const shadowGeometry = new THREE.CircleGeometry(0.5, 40);
+  const shadowGeometry = new THREE.PlaneGeometry(1, 1);
   shadowGeometry.rotateX(-Math.PI / 2);
   const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
-  shadow.position.set(x, ground + 0.022, z + 0.02);
-  shadow.scale.set(1.15, 0.42, 1);
+  shadow.position.set(x - 0.42, ground + 0.028, z + 0.16);
+  shadow.scale.set(1.75, 1, 0.5);
+  shadow.rotation.y = -0.12;
+  shadow.renderOrder = 20;
   root.add(shadow);
 
   return {
@@ -54,7 +77,8 @@ export const createPersonSystem = (): SceneSystem => {
         SCENE_TIMELINE.landscapeExit.end,
       );
       material.opacity = visible;
-      shadowMaterial.opacity = 0.42 * visible;
+      haloMaterial.uniforms.uOpacity.value = 0.22 * visible;
+      shadowMaterial.uniforms.uOpacity.value = 0.58 * visible;
       root.visible = visible > 0.002;
     },
     resize() {},
@@ -63,6 +87,8 @@ export const createPersonSystem = (): SceneSystem => {
         if (object instanceof THREE.Mesh) object.geometry.dispose();
       });
       material.dispose();
+      haloGeometry.dispose();
+      haloMaterial.dispose();
       shadowGeometry.dispose();
       shadowMaterial.dispose();
     },
