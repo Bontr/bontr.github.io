@@ -24,6 +24,7 @@ import {
   terrainHeight,
 } from './generators';
 import {
+  createCursorRepulsionUniforms,
   createGlowMaterial,
   createMorphMaterial,
   createSimplePointMaterial,
@@ -95,13 +96,16 @@ const morphGeometry = referenceMorph
   ? createMorphGeometryFromReference(referenceMorph, quality.morphCount)
   : createMorphGeometry(quality.morphCount);
 
-const flowerMaterial = createMorphMaterial(pixelRatio);
+const cursorRepulsion = createCursorRepulsionUniforms();
+const supportsPointerRepulsion = !reduceMotion && window.matchMedia('(pointer: fine)').matches;
+
+const flowerMaterial = createMorphMaterial(pixelRatio, cursorRepulsion);
 flowerMaterial.uniforms.uMorph.value = 0;
 const flowerPoints = new THREE.Points(morphGeometry, flowerMaterial);
 flowerPoints.frustumCulled = false;
 scene.add(flowerPoints);
 
-const galaxyMaterial = createMorphMaterial(pixelRatio);
+const galaxyMaterial = createMorphMaterial(pixelRatio, cursorRepulsion);
 galaxyMaterial.uniforms.uMorph.value = 1;
 const galaxyPoints = new THREE.Points(morphGeometry, galaxyMaterial);
 galaxyPoints.position.y = -worldGap;
@@ -111,7 +115,7 @@ scene.add(galaxyPoints);
 const foreground = new THREE.Group();
 scene.add(foreground);
 
-const terrainMaterial = createTerrainPointMaterial(pixelRatio, 0.95);
+const terrainMaterial = createTerrainPointMaterial(pixelRatio, 0.95, cursorRepulsion);
 const terrainGeometry = referenceTerrain
   ? createTerrainGeometryFromReference(referenceTerrain, quality.terrainCount)
   : createTerrainGeometry(quality.terrainCount);
@@ -119,7 +123,7 @@ const terrainPoints = new THREE.Points(terrainGeometry, terrainMaterial);
 terrainPoints.frustumCulled = false;
 foreground.add(terrainPoints);
 
-const starMaterial = createSimplePointMaterial(pixelRatio, 0.58);
+const starMaterial = createSimplePointMaterial(pixelRatio, 0.58, cursorRepulsion);
 // Use one continuous star volume through the full camera path instead of stacked
 // copies. The stacked fields could expose a visible density seam mid-transition.
 const starGeometry = createStarGeometry(
@@ -329,7 +333,7 @@ const targetCurve = new THREE.CatmullRomCurve3(
 
 const clamp01 = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
 const scrollState = { progress: 0 };
-const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+const pointer = { x: 0, y: 0, targetX: 0, targetY: 0, repulsion: 0, repulsionTarget: 0 };
 const cameraTarget = new THREE.Vector3();
 
 const applyScene = (progress: number, time: number) => {
@@ -355,6 +359,14 @@ const applyScene = (progress: number, time: number) => {
   targetCurve.getPointAt(travelProgress, cameraTarget);
   pointer.x += (pointer.targetX - pointer.x) * 0.045;
   pointer.y += (pointer.targetY - pointer.y) * 0.045;
+  if (supportsPointerRepulsion) {
+    const repulsionEase = pointer.repulsionTarget > pointer.repulsion ? 1 : 0.14;
+    pointer.repulsion += (pointer.repulsionTarget - pointer.repulsion) * repulsionEase;
+    cursorRepulsion.uPointer.value.set(pointer.targetX, pointer.targetY);
+    cursorRepulsion.uPointerActive.value = pointer.repulsion;
+  } else {
+    cursorRepulsion.uPointerActive.value = 0;
+  }
   camera.position.x += pointer.x * (0.18 - p * 0.07);
   camera.position.y += pointer.y * (0.12 - p * 0.04);
   cameraTarget.x += pointer.x * 0.08;
@@ -443,9 +455,16 @@ window.addEventListener(
     if (event.pointerType === 'touch') return;
     pointer.targetX = (event.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
     pointer.targetY = (0.5 - event.clientY / Math.max(1, window.innerHeight)) * 2;
+    if (supportsPointerRepulsion) pointer.repulsionTarget = 1;
   },
   { passive: true },
 );
+
+const releasePointerRepulsion = () => {
+  pointer.repulsionTarget = 0;
+};
+document.documentElement.addEventListener('pointerleave', releasePointerRepulsion, { passive: true });
+window.addEventListener('blur', releasePointerRepulsion, { passive: true });
 
 const resize = () => {
   const width = window.innerWidth;
@@ -460,6 +479,8 @@ const resize = () => {
   smaaPass.enabled = !exploreTraveling;
   camera.aspect = width / Math.max(1, height);
   camera.updateProjectionMatrix();
+  cursorRepulsion.uPointerAspect.value = width / Math.max(1, height);
+  cursorRepulsion.uPointerRadius.value = THREE.MathUtils.clamp(124 / Math.max(1, height), 0.07, 0.19);
   flowerMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   galaxyMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   terrainMaterial.uniforms.uPixelRatio.value = nextPixelRatio;

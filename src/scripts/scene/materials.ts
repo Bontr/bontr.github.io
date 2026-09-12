@@ -1,5 +1,50 @@
 import * as THREE from 'three';
 
+export type CursorRepulsionUniforms = {
+  uPointer: { value: THREE.Vector2 };
+  uPointerAspect: { value: number };
+  uPointerRadius: { value: number };
+  uPointerStrength: { value: number };
+  uPointerActive: { value: number };
+};
+
+export const createCursorRepulsionUniforms = (): CursorRepulsionUniforms => ({
+  uPointer: { value: new THREE.Vector2(2, 2) },
+  uPointerAspect: { value: window.innerWidth / Math.max(1, window.innerHeight) },
+  uPointerRadius: { value: 0.17 },
+  uPointerStrength: { value: 1 },
+  uPointerActive: { value: 0 },
+});
+
+const cursorRepulsionVertex = `
+uniform vec2 uPointer;
+uniform float uPointerAspect;
+uniform float uPointerRadius;
+uniform float uPointerStrength;
+uniform float uPointerActive;
+
+vec4 repelFromPointer(vec4 clipPosition, float seed) {
+  if (uPointerActive <= 0.001 || clipPosition.w <= 0.0) return clipPosition;
+
+  vec2 ndc = clipPosition.xy / clipPosition.w;
+  vec2 delta = ndc - uPointer;
+  vec2 metric = vec2(delta.x * uPointerAspect, delta.y);
+  float distanceToPointer = length(metric);
+  if (distanceToPointer >= uPointerRadius) return clipPosition;
+
+  vec2 fallback = vec2(cos(seed * 6.2831853), sin(seed * 6.2831853));
+  vec2 direction = distanceToPointer > 0.0001 ? metric / distanceToPointer : fallback;
+  float t = smoothstep(0.0, 1.0, distanceToPointer / uPointerRadius);
+  float displacedDistance = mix(uPointerRadius * 0.48, uPointerRadius, t);
+  float finalDistance = mix(distanceToPointer, displacedDistance, uPointerStrength * uPointerActive);
+  vec2 displacedMetric = direction * finalDistance;
+  vec2 displacedNdc = uPointer + vec2(displacedMetric.x / uPointerAspect, displacedMetric.y);
+
+  clipPosition.xy = displacedNdc * clipPosition.w;
+  return clipPosition;
+}
+`;
+
 const pointFragment = `
 uniform float uOpacity;
 varying vec3 vColor;
@@ -24,6 +69,7 @@ void main() {
 }
 `;
 const morphVertex = `
+${cursorRepulsionVertex}
 uniform float uMorph;
 uniform float uTime;
 uniform float uPixelRatio;
@@ -56,7 +102,7 @@ void main() {
   float distanceScale = clamp(11.5 / max(1.0, -mvPosition.z), 0.48, 1.85);
   float size = mix(aSizeStart, aSizeEnd, m);
   gl_PointSize = clamp(size * uPixelRatio * distanceScale, 1.0, 8.5 * uPixelRatio);
-  gl_Position = projectionMatrix * mvPosition;
+  gl_Position = repelFromPointer(projectionMatrix * mvPosition, aSeed);
 
   vColor = mix(aColorStart, aColorEnd, m);
   vGlyph = mix(aGlyphStart, aGlyphEnd, m);
@@ -89,6 +135,7 @@ void main() {
 `;
 
 const terrainVertex = `
+${cursorRepulsionVertex}
 uniform float uTime;
 uniform float uPixelRatio;
 uniform vec2 uShadowOrigin;
@@ -121,7 +168,7 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(localPosition, 1.0);
   float distanceScale = clamp(9.8 / max(1.0, -mvPosition.z), 0.46, 1.75);
   gl_PointSize = clamp(aSize * uPixelRatio * distanceScale, 1.0, 7.0 * uPixelRatio);
-  gl_Position = projectionMatrix * mvPosition;
+  gl_Position = repelFromPointer(projectionMatrix * mvPosition, aSeed);
   vColor = aColor;
   vGlyph = aGlyph;
   vShimmer = 0.5 + 0.5 * sin(aSeed * 61.7 + uTime * 0.55);
@@ -129,6 +176,7 @@ void main() {
 `;
 
 const simpleVertex = `
+${cursorRepulsionVertex}
 uniform float uTime;
 uniform float uPixelRatio;
 uniform float uProgress;
@@ -147,16 +195,20 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(localPosition, 1.0);
   float distanceScale = clamp(9.8 / max(1.0, -mvPosition.z), 0.46, 1.75);
   gl_PointSize = clamp(aSize * uPixelRatio * distanceScale, 1.0, 7.0 * uPixelRatio);
-  gl_Position = projectionMatrix * mvPosition;
+  gl_Position = repelFromPointer(projectionMatrix * mvPosition, aSeed);
   vColor = aColor;
   vGlyph = aGlyph;
   vShimmer = 0.5 + 0.5 * sin(aSeed * 61.7 + uTime * 0.55);
 }
 `;
 
-export const createMorphMaterial = (pixelRatio: number) =>
+export const createMorphMaterial = (
+  pixelRatio: number,
+  cursorRepulsion: CursorRepulsionUniforms = createCursorRepulsionUniforms(),
+) =>
   new THREE.ShaderMaterial({
     uniforms: {
+      ...cursorRepulsion,
       uMorph: { value: 0 },
       uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
@@ -170,9 +222,14 @@ export const createMorphMaterial = (pixelRatio: number) =>
     blending: THREE.NormalBlending,
   });
 
-export const createTerrainPointMaterial = (pixelRatio: number, opacity = 1) =>
+export const createTerrainPointMaterial = (
+  pixelRatio: number,
+  opacity = 1,
+  cursorRepulsion: CursorRepulsionUniforms = createCursorRepulsionUniforms(),
+) =>
   new THREE.ShaderMaterial({
     uniforms: {
+      ...cursorRepulsion,
       uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
       uOpacity: { value: opacity },
@@ -189,9 +246,14 @@ export const createTerrainPointMaterial = (pixelRatio: number, opacity = 1) =>
     blending: THREE.NormalBlending,
   });
 
-export const createSimplePointMaterial = (pixelRatio: number, opacity = 1) =>
+export const createSimplePointMaterial = (
+  pixelRatio: number,
+  opacity = 1,
+  cursorRepulsion: CursorRepulsionUniforms = createCursorRepulsionUniforms(),
+) =>
   new THREE.ShaderMaterial({
     uniforms: {
+      ...cursorRepulsion,
       uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
       uProgress: { value: 0 },
