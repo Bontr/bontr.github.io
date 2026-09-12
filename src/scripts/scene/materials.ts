@@ -35,7 +35,8 @@ vec4 repelFromPointer(vec4 clipPosition, float seed) {
   vec2 fallback = vec2(cos(seed * 6.2831853), sin(seed * 6.2831853));
   vec2 direction = distanceToPointer > 0.0001 ? metric / distanceToPointer : fallback;
   float t = smoothstep(0.0, 1.0, distanceToPointer / uPointerRadius);
-  float displacedDistance = mix(uPointerRadius * 0.48, uPointerRadius, t);
+  float clearRadius = uPointerRadius * 0.42;
+  float displacedDistance = mix(clearRadius, uPointerRadius, t);
   float finalDistance = mix(distanceToPointer, displacedDistance, uPointerStrength * uPointerActive);
   vec2 displacedMetric = direction * finalDistance;
   vec2 displacedNdc = uPointer + vec2(displacedMetric.x / uPointerAspect, displacedMetric.y);
