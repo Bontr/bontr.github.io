@@ -449,16 +449,20 @@ if (reduceMotion) {
   });
 }
 
-window.addEventListener(
-  'pointermove',
-  (event) => {
-    if (event.pointerType === 'touch') return;
-    pointer.targetX = (event.clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
-    pointer.targetY = (0.5 - event.clientY / Math.max(1, window.innerHeight)) * 2;
-    if (supportsPointerRepulsion) pointer.repulsionTarget = 1;
-  },
-  { passive: true },
-);
+const updatePointerTarget = (clientX: number, clientY: number) => {
+  pointer.targetX = (clientX / Math.max(1, window.innerWidth) - 0.5) * 2;
+  pointer.targetY = (0.5 - clientY / Math.max(1, window.innerHeight)) * 2;
+  if (supportsPointerRepulsion) pointer.repulsionTarget = 1;
+};
+
+window.addEventListener('pointermove', (event) => {
+  if (event.pointerType === 'touch') return;
+  updatePointerTarget(event.clientX, event.clientY);
+}, { passive: true });
+
+window.addEventListener('mousemove', (event) => {
+  updatePointerTarget(event.clientX, event.clientY);
+}, { passive: true });
 
 const releasePointerRepulsion = () => {
   pointer.repulsionTarget = 0;
