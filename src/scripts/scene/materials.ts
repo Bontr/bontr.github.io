@@ -12,8 +12,8 @@ export type CursorRepulsionUniforms = {
 export const createCursorRepulsionUniforms = (): CursorRepulsionUniforms => ({
   uPointer: { value: new THREE.Vector2(2, 2) },
   uPointerAspect: { value: window.innerWidth / Math.max(1, window.innerHeight) },
-  uPointerRadius: { value: 0.34 },
-  uPointerClearRadius: { value: 0.08 },
+  uPointerRadius: { value: 0.22 },
+  uPointerClearRadius: { value: 0.05 },
   uPointerStrength: { value: 1 },
   uPointerActive: { value: 0 },
 });

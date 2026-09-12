@@ -486,8 +486,8 @@ const resize = () => {
   camera.aspect = width / Math.max(1, height);
   camera.updateProjectionMatrix();
   cursorRepulsion.uPointerAspect.value = width / Math.max(1, height);
-  cursorRepulsion.uPointerRadius.value = THREE.MathUtils.clamp(300 / Math.max(1, height), 0.14, 0.46);
-  cursorRepulsion.uPointerClearRadius.value = THREE.MathUtils.clamp(72 / Math.max(1, height), 0.045, 0.14);
+  cursorRepulsion.uPointerRadius.value = THREE.MathUtils.clamp(180 / Math.max(1, height), 0.09, 0.28);
+  cursorRepulsion.uPointerClearRadius.value = THREE.MathUtils.clamp(42 / Math.max(1, height), 0.025, 0.08);
   flowerMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   galaxyMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
   terrainMaterial.uniforms.uPixelRatio.value = nextPixelRatio;
